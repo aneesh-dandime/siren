@@ -83,6 +83,44 @@ class Implicit3DWrapper(torch.utils.data.Dataset):
         return in_dict, gt_dict
 
 
+class Implicit3DWrapper2(torch.utils.data.Dataset):
+    def __init__(self, dataset, sidelength=None, sample_fraction=1.):
+
+        if isinstance(sidelength, int):
+            sidelength = 3 * (sidelength,)
+
+        self.dataset = dataset
+        self.mgrid = get_mgrid(sidelength, dim=3)
+        self.data = (self.dataset[0] - 0.5) / 0.5
+        self.sample_fraction = sample_fraction
+        self.total_points = self.mgrid.shape[0] * self.mgrid.shape[1] * self.mgrid.shape[2]
+        self.N_samples = int(self.sample_fraction * self.total_points)
+        print(self.N_samples)
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        if self.sample_fraction < 1.:
+            fs = np.random.randint(1, self.mgrid.shape[0] - 1, (self.N_samples,))
+            xs = np.random.randint(0, self.mgrid.shape[1], (self.N_samples,))
+            ys = np.random.randint(0, self.mgrid.shape[2], (self.N_samples,))
+            coords_first = self.mgrid[(fs - 1, xs, ys)]
+            data_first = self.data[(fs - 1, xs, ys)]
+            coords_next_frame = self.mgrid[(fs + 1, xs, ys)]
+            data_next_frame = self.data[(fs + 1, xs, ys)]
+            coords = np.concatenate((coords_first, coords_next_frame))
+            data = np.concatenate((data_first, data_next_frame))
+        else:
+            coords = self.mgrid.view(-1, 3)
+            data = self.data.view(-1, self.dataset.channels)
+
+        in_dict = {'idx': idx, 'coords': coords}
+        gt_dict = {'img': data}
+
+        return in_dict, gt_dict
+
+
 if __name__ == '__main__':
     video_path = './data/cat_video.mp4'
     vid_dataset = Video(video_path)
