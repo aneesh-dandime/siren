@@ -121,17 +121,41 @@ class Implicit3DWrapper2(torch.utils.data.Dataset):
         return in_dict, gt_dict
 
 
+class Implicit3DWrapperLinear(torch.utils.data.Dataset):
+    def __init__(self, dataset, sidelength=None):
+
+        if isinstance(sidelength, int):
+            sidelength = 3 * (sidelength,)
+
+        self.dataset = dataset
+        self.mgrid = get_mgrid(sidelength, dim=3)
+        self.data = (self.dataset[0] - 0.5) / 0.5
+        self.len = self.dataset.shape[0] - 2
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, idx):
+        coords_first = self.mgrid[idx + 1 - 1].reshape(-1, 3)
+        coords_last = self.mgrid[idx + 1 + 1].reshape(-1, 3)
+        data_first = self.data[idx + 1 - 1].reshape(-1, self.dataset.channels)
+        data_last = self.data[idx + 1 + 1].reshape(-1, self.dataset.channels)
+        coords = np.concatenate((coords_first, coords_last))
+        data = np.concatenate((data_first, data_last))
+
+        in_dict = {'idx': idx, 'coords': coords}
+        gt_dict = {'img': data}
+
+        return in_dict, gt_dict
+
+
 if __name__ == '__main__':
     video_path = './data/cat_video.mp4'
     vid_dataset = Video(video_path)
-    coord_dataset = Implicit3DWrapper(vid_dataset, vid_dataset.shape, sample_fraction=38e-4)
+    coord_dataset = Implicit3DWrapperLinear(vid_dataset, vid_dataset.shape)
     dataloader = DataLoader(coord_dataset, shuffle=True, batch_size=1, pin_memory=True, num_workers=0)
     dataiter = iter(dataloader)
     inp, gt = dataiter.next()
     print(inp['coords'].shape)
     print(gt['img'].shape)
-    print(coord_dataset.mgrid.shape)
-    print(coord_dataset.dataset.shape)
-    print(coord_dataset.total_points)
-    print(coord_dataset.N_samples)
 
