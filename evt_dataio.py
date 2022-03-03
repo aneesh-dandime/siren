@@ -122,7 +122,7 @@ class Implicit3DWrapper2(torch.utils.data.Dataset):
 
 
 class Implicit3DWrapperLinear(torch.utils.data.Dataset):
-    def __init__(self, dataset, sidelength=None):
+    def __init__(self, dataset, sidelength=None, sample_fraction=0.5):
 
         if isinstance(sidelength, int):
             sidelength = 3 * (sidelength,)
@@ -131,15 +131,22 @@ class Implicit3DWrapperLinear(torch.utils.data.Dataset):
         self.mgrid = get_mgrid(sidelength, dim=3)
         self.data = (self.dataset[0] - 0.5) / 0.5
         self.len = self.dataset.shape[0] - 2
+        self.sample_fraction = sample_fraction
+        self.sample_x = int(self.sample_fraction * self.dataset.shape[1])
+        self.sample_y = int(self.sample_fraction * self.dataset.shape[2])
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, idx):
-        coords_first = self.mgrid[idx + 1 - 1].reshape(-1, 3)
-        coords_last = self.mgrid[idx + 1 + 1].reshape(-1, 3)
-        data_first = self.data[idx + 1 - 1].reshape(-1, self.dataset.channels)
-        data_last = self.data[idx + 1 + 1].reshape(-1, self.dataset.channels)
+        start_x = np.random.randint(0, self.mgrid.shape[1] - self.sample_x)
+        end_x = start_x + self.sample_x
+        start_y = np.random.randint(0, self.mgrid.shape[2] - self.sample_y)
+        end_y = start_y + self.sample_y
+        coords_first = self.mgrid[idx + 1 - 1, start_x: end_x, start_y: end_y, :].reshape(-1, 3)
+        coords_last = self.mgrid[idx + 1 + 1, start_x: end_x, start_y: end_y, :].reshape(-1, 3)
+        data_first = self.data[idx + 1 - 1, start_x: end_x, start_y: end_y, :].reshape(-1, self.dataset.channels)
+        data_last = self.data[idx + 1 + 1, start_x: end_x, start_y: end_y, :].reshape(-1, self.dataset.channels)
         coords = np.concatenate((coords_first, coords_last))
         data = np.concatenate((data_first, data_last))
 
